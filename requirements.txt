@@ -2,3 +2,7 @@ requests
 python-dotenv
 notion-client
 python-json-logger
+logger
+mysql-connector-python
+python-dateutil
+python-dotenv

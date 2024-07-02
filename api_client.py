@@ -116,7 +116,7 @@ class TodoistSyncClient:
                 note_id = real_id_value
                 break
         self.db_manager.update_sync_token("items", result["sync_token"])
-        print(f"create_task_with_note() 返回: {(sync_token, item_id, note_id)}")
+        #print(f"create_task_with_note() 返回: {(sync_token, item_id, note_id)}")
         return sync_token, item_id, note_id
 
     def create_project(self, project_data: Dict[str, Any],temp_id) -> Dict[str, Any]:
@@ -130,7 +130,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("projects", result["sync_token"])
-        print(f"create_project() 返回: {result}")
+       # #print(f"create_project() 返回: {result}")
         return result
 
     def update_task(self, task_id: str, task_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -146,7 +146,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("items", result["sync_token"])
-        print(f"update_task() 返回: {(result)}")
+        #print(f"update_task() 返回: {(result)}")
         return result
 
     def update_project(self, project_id: str, project_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -162,7 +162,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("projects", result["sync_token"])
-        print(f"update_project() 返回类型: {type(result)}")
+       # #print(f"update_project() 返回类型: {type(result)}")
         return result
 
     def check_task(self, task_id: str) -> List[Dict[str, Any]]:
@@ -177,7 +177,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("items", result["sync_token"])
-        print(f"check_task() 返回类型: {type(result['items'])}")
+        #print(f"check_task() 返回类型: {type(result['items'])}")
         return result["items"]
 
     def delete_task(self, task_id: str) -> Dict[str, Any]:
@@ -192,7 +192,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("items", result["sync_token"])
-        print(f"delete_task() 返回类型: {type(result)}")
+      #  #print(f"delete_task() 返回类型: {type(result)}")
         return result
     def add_note(self, task_id: str, content: str, temp_id: str) -> Dict[str, Any]:
         url = f"{self.base_url}/sync"
@@ -208,7 +208,7 @@ class TodoistSyncClient:
         headers = {"Authorization": f"Bearer {self.token}"}
         response = requests.post(url, json={"commands": commands}, headers=headers)
         result = response.json()
-        print(f"add_note() 返回: {(result)}")
+      #  #print(f"add_note() 返回: {(result)}")
         return result
 
     def update_note(self, note_id: str, content: str) -> Dict[str, Any]:
@@ -224,7 +224,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("notes", result["sync_token"])
-        print(f"update_note() 返回类型: {type(result)}")
+      #  #print(f"update_note() 返回类型: {type(result)}")
         return result
 
     def delete_note(self, note_id: str) -> Dict[str, Any]:
@@ -239,7 +239,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("notes", result["sync_token"])
-        print(f"delete_note() 返回类���: {type(result)}")
+        #print(f"delete_note() 返回类���: {type(result)}")
         return result
 
     def delete_project(self, project_id: str) -> Dict[str, Any]:
@@ -254,7 +254,7 @@ class TodoistSyncClient:
         }]
         result = self.sync_api(resource_types, sync_token, commands)
         self.db_manager.update_sync_token("projects", result["sync_token"])
-        print(f"delete_project() 返回类型: {type(result)}")
+      #  #print(f"delete_project() 返回类型: {type(result)}")
         return result
 
 
@@ -272,7 +272,7 @@ class NotionClient:
             "properties": properties
         }
         result = self.client.pages.create(**data)
-        print(f"create_page() 返回: {result}")
+        ##print(f"create_page() 返回: {result}")
         return result
     
     def update_page(self, page_id: str, properties: Dict[str, Any], archived) -> Dict[str, Any]:
@@ -282,7 +282,7 @@ class NotionClient:
             "archived": archived
         }
         result = self.client.pages.update(**data)
-        print(f"update_page() 返回类型: {type(result)}")
+        #print(f"update_page() 返回类型: {type(result)}")
         return result
     
     def delete_page(self, page_id: str) -> Dict[str, Any]:
@@ -291,16 +291,16 @@ class NotionClient:
             "archived": True
         }
         result = self.client.pages.update(**data)
-        print(f"delete_page() 返回: {result}")
+        #print(f"delete_page() 返回: {result}")
         return result
 
     def get_page(self, page_id: str) -> Dict[str, Any]:
         result = self.client.pages.retrieve(page_id=page_id)
-        print(f"get_page() 返回: {result}")
+        #print(f"get_page() 返回: {result}")
         return result
     def get_database(self, database_id: str) -> Dict[str, Any]:
         result = self.client.databases.retrieve(database_id=database_id)
-        print(f"get_database() 返回: {result}")
+        #print(f"get_database() 返回: {result}")
         return result
 
     def create_task(self, properties: Dict[str, Any]) -> Dict[str, Any]:
@@ -325,7 +325,7 @@ class NotionClient:
             }
         }
         result = self.client.pages.update(**data)
-        print(f"task_complete() 返回类型: {type(result)}")
+        #print(f"task_complete() 返回类型: {type(result)}")
         return result
 
     def delete_page(self, page_id: str) -> bool:
@@ -334,7 +334,7 @@ class NotionClient:
             "archived": True
         }
         result = self.client.pages.update(**data)
-        print(f"delete_page() 返回: {result}")
+        #print(f"delete_page() 返回: {result}")
         return result['archived']
     def restore_task(self, task_id: str) -> Dict[str, Any]:
         data = {
@@ -342,7 +342,7 @@ class NotionClient:
             "archived": False
         }
         result = self.client.pages.update(**data)
-        print(f"restore_task() 返回: {result}")
+        #print(f"restore_task() 返回: {result}")
         return result
     def get_projects(self, filter_properties: Dict[str, Any] = None) -> Dict[str, Any]:
         data = {
@@ -351,7 +351,7 @@ class NotionClient:
         if filter_properties:
             data["filter"] = filter_properties
         result = self.client.databases.query(**data)
-        print(f"get_projects() 返回: {result}")
+        #print(f"get_projects() 返回: {result}")
         return result
     
     def get_tasks(self, filter_properties: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -361,7 +361,7 @@ class NotionClient:
         if filter_properties:
             data["filter"] = filter_properties
         result = self.client.databases.query(**data)
-        print(f"get_tasks() 返回: {result}")
+        #print(f"get_tasks() 返回: {result}")
         return result
 
     def delete_task(self, task_id: str) -> bool:
