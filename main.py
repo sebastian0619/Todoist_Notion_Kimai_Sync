@@ -36,8 +36,8 @@ def task_sync():
         except Exception as e:
             logger.error(f"Error during task synchronization: {e}")
         
-        time.sleep(15)
-        time.sleep(15)
+        time.sleep(60)
+        time.sleep(60)
 
 if __name__ == "__main__":
     project_thread = Thread(target=project_sync)
