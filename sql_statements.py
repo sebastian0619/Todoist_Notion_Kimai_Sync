@@ -63,7 +63,8 @@ def get_create_projects_table_sql(db_type):
             created_at DATETIME,
             updated_at DATETIME,
             notion_created DATETIME,
-            notion_modified DATETIME
+            notion_modified DATETIME,
+            deleted BOOLEAN
         );
         """
     else:
@@ -78,7 +79,8 @@ def get_create_projects_table_sql(db_type):
             created_at DATETIME,
             updated_at DATETIME,
             notion_created DATETIME,
-            notion_modified DATETIME
+            notion_modified DATETIME,
+            deleted BOOLEAN
         );
         """
 
@@ -95,6 +97,22 @@ def get_create_sync_tokens_table_sql(db_type):
         CREATE TABLE IF NOT EXISTS sync_tokens (
             resource_type TEXT PRIMARY KEY,
             sync_token TEXT
+        );
+        """
+
+def get_create_count_table_sql(db_type):
+    if db_type == "mysql":
+        return """
+        CREATE TABLE IF NOT EXISTS count (
+            type TEXT PRIMARY KEY,
+            count INT
+        );
+        """
+    else:
+        return """
+        CREATE TABLE IF NOT EXISTS count (
+            type TEXT PRIMARY KEY,
+            count INTEGER
         );
         """
 
@@ -125,24 +143,24 @@ def get_update_task_query(db_type):
 def get_insert_project_query(db_type):
     if db_type == "mysql":
         return """
-        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified, deleted)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     else:
         return """
-        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified, deleted)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
 def get_update_project_query(db_type):
     if db_type == "mysql":
         return """
-        UPDATE projects SET name = %s, todoist_id = %s, notion_id = %s, todoist_url = %s, notion_url = %s, created_at = %s, updated_at = %s, notion_created = %s, notion_modified = %s
+        UPDATE projects SET name = %s, todoist_id = %s, notion_id = %s, todoist_url = %s, notion_url = %s, created_at = %s, updated_at = %s, notion_created = %s, notion_modified = %s, deleted = %s
         WHERE id = %s
         """
     else:
         return """
-        UPDATE projects SET name = ?, todoist_id = ?, notion_id = ?, todoist_url = ?, notion_url = ?, created_at = ?, updated_at = ?, notion_created = ?, notion_modified = ?
+        UPDATE projects SET name = ?, todoist_id = ?, notion_id = ?, todoist_url = ?, notion_url = ?, created_at = ?, updated_at = ?, notion_created = ?, notion_modified = ?, deleted = ?
         WHERE id = ?
         """
 
@@ -164,4 +182,14 @@ def get_update_sync_token_query(db_type):
     else:
         return """
         REPLACE INTO sync_tokens (resource_type, sync_token) VALUES (?, ?)
+        """
+
+def get_update_count_query(db_type):
+    if db_type == "mysql":
+        return """
+        UPDATE count SET count = %s WHERE type = %s
+        """
+    else:
+        return """
+        UPDATE count SET count = ? WHERE type = ?
         """

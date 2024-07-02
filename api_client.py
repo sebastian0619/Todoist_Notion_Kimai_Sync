@@ -298,6 +298,10 @@ class NotionClient:
         result = self.client.pages.retrieve(page_id=page_id)
         print(f"get_page() 返回: {result}")
         return result
+    def get_database(self, database_id: str) -> Dict[str, Any]:
+        result = self.client.databases.retrieve(database_id=database_id)
+        print(f"get_database() 返回: {result}")
+        return result
 
     def create_task(self, properties: Dict[str, Any]) -> Dict[str, Any]:
         return self.create_page(self.task_database_id, properties)
@@ -308,8 +312,8 @@ class NotionClient:
     def update_task(self, page_id: str, properties: Dict[str, Any], archived) -> Dict[str, Any]:
         return self.update_page(page_id, properties, archived)
 
-    def update_project(self, page_id: str, properties: Dict[str, Any]) -> Dict[str, Any]:
-        return self.update_page(page_id, properties)
+    def update_project(self, page_id: str, properties: Dict[str, Any], archived) -> Dict[str, Any]:
+        return self.update_page(page_id, properties, archived)
 
     def task_complete(self, task_id: str) -> Dict[str, Any]:
         data = {
@@ -408,3 +412,9 @@ class NotionTask:
         self.todoist_id = todoist_id
         self.checked = checked
         self.deleted = deleted
+
+class KimaiClient:
+    def __init__(self, token: str):
+        self.token = token
+        self.base_url = "https://kimai.kingschats.com/api"
+        self.headers = {"Authorization": f"Bearer {self.token}"}

@@ -2,7 +2,7 @@ from api_client import TodoistSyncClient, NotionClient, TodoistTask, NotionTask
 from db_operations import DatabaseManager
 from logger import logger
 from sql_statements import get_insert_task_query, get_update_task_query
-from utils import map_priority_reverse, map_priority, retry_on_failure, notion_trash_property,notion_task_property, notion_checked_property,notion_priority_property, notion_due_date_property, notion_todoist_id_property, notion_url_property, notion_description_property, is_valid_isoformat, is_valid_uuid
+from utils import map_priority_reverse, map_priority, iso_to_timestamp,iso_to_naive,retry_on_failure, notion_trash_property,notion_task_property, notion_checked_property,notion_priority_property, notion_due_date_property, notion_todoist_id_property, notion_url_property, notion_description_property, is_valid_isoformat, is_valid_uuid
 from project_sync import create_notion_project
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -151,21 +151,21 @@ def sync_todoist_to_notion():
             logger.error(f"Expected task to be a dictionary but got {type(task)}: {task}")
             continue
 
-        logger.info(f"Processing task: {task}")  # Print debug info
+        logger.debug(f"Processing task: {task}")  # Print debug info
 
         # 获取与任务相关的笔记
         note_id, note_content = db_manager.fetch_one("SELECT note_id, note FROM tasks WHERE todoist_id = ?", (task.get("id"),)) or (None, None)
         due_date = task.get("due", {}).get("date") if task.get("due") else None
         if due_date:
             #due_date = datetime.fromisoformat(due_date)
-            logger.info(f"due_date: {due_date}")
+            logger.debug(f"due_date: {due_date}")
         todoist_task = TodoistTask(
             id=task.get("id"),
             content=task.get("content"),
             due_date=due_date,
             priority=task.get("priority") if task.get("priority") else None,
             project_id=task.get("project_id"),
-            project_name=db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (task.get("project_id"),)) or None,
+            project_name=db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (task.get("project_id"),))[0] or None,
             added_at=task.get("added_at"),
             note_id=note_id,
             note=note_content,
@@ -182,7 +182,7 @@ def sync_todoist_to_notion():
         modified_date = modified_date[0] if modified_date else None
         notion_task_id_tuple = db_manager.fetch_one("SELECT notion_id FROM tasks WHERE todoist_id = ?", (todoist_task.id,))
         notion_task_id = notion_task_id_tuple[0] if notion_task_id_tuple else None
-        logger.info(f"Fetched notion_task_id: {notion_task_id}")
+        logger.debug(f"Fetched notion_task_id: {notion_task_id}")
 
 
         if todoist_task.date_updated and modified_date and todoist_task.deleted != True:
@@ -193,9 +193,9 @@ def sync_todoist_to_notion():
                 notion_task = notion_client.get_page(notion_task_id)
                 notion_modified = notion_task.get('last_edited_time')
                 logger.info(f"Fetched notion_task: {notion_task.get('properties')['Task']['title'][0]['text']['content']}")
-                logger.info(f"Fetched modified date: {notion_modified}, comparing with todoist_task.date_updated: {todoist_task.date_updated}")
+                logger.debug(f"Fetched modified date: {notion_modified}, comparing with todoist_task.date_updated: {todoist_task.date_updated}")
             logger.info("Updating existing Notion task...")
-            logger.info(f"Proposed notion properties: id={todoist_task.id}, content={todoist_task.content}, due_date={todoist_task.due_date}, priority={todoist_task.priority}, project_id={todoist_task.project_id}, added_at={todoist_task.added_at}, date_updated={todoist_task.date_updated}, description={todoist_task.description}")
+            logger.debug(f"Proposed notion properties: id={todoist_task.id}, content={todoist_task.content}, due_date={todoist_task.due_date}, priority={todoist_task.priority}, project_id={todoist_task.project_id}, added_at={todoist_task.added_at}, date_updated={todoist_task.date_updated}, description={todoist_task.description}")
             new_task_in_todoist = update_notion_task(notion_client, todoist_task, notion_task_id)
             logger.info(f"Updated task in Notion: {new_task_in_todoist}")
             update_task_query = get_update_task_query(db_manager.db_type)
@@ -213,7 +213,7 @@ def sync_todoist_to_notion():
             temp_id = str(uuid.uuid4())
             logger.info("Cannot find matching notion task in database or in Notion, creating new Notion task...")
             try:
-                logger.info(f"Proposed notion properties: id={todoist_task.id}, content={task.get('content')}, due_date={todoist_task.due_date}, priority={todoist_task.priority}, project_id={todoist_task.project_id}, added_at={todoist_task.added_at}, date_updated={todoist_task.date_updated}")
+                logger.debug(f"Proposed notion properties: id={todoist_task.id}, content={task.get('content')}, due_date={todoist_task.due_date}, priority={todoist_task.priority}, project_id={todoist_task.project_id}, added_at={todoist_task.added_at}, date_updated={todoist_task.date_updated}")
                 notion_task = create_notion_task(notion_client, todoist_task)
             except Exception:
                 logger.error("Failed to create Notion task")
@@ -227,7 +227,7 @@ def sync_todoist_to_notion():
             note_id = temp_id_mapping.get(temp_id)
             insert_task_query = get_insert_task_query(db_manager.db_type)
             project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (todoist_task.project_id,))
-            logger.info(f"Fetched project_name: {project_name}")
+            logger.debug(f"Fetched project_name: {project_name}")
             due_date = todoist_task.due_date
             is_recurring = todoist_task.recurring
             db_manager.execute_query(insert_task_query, (
@@ -245,143 +245,183 @@ def sync_notion_to_todoist():
     db_manager = DatabaseManager(DB_TYPE, DB_PATH)
     notion_client = NotionClient(NOTION_TOKEN)
     todoist_client = TodoistSyncClient(TODOIST_TOKEN, DB_TYPE, DB_PATH)
-
-
     task_sync_token = db_manager.get_sync_token("items")
-    logger.info(f"Task sync token: {task_sync_token}")
+    logger.debug(f"Task sync token: {task_sync_token}")
     notion_tasks = notion_client.get_tasks({})
-    for task in notion_tasks.get('results', []):
-        task_name = task.get('properties', {}).get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', '')
-        logger.info(f"Notion task name: {task_name}")
-
-    for task in notion_tasks.get("results", []):
-        if not isinstance(task, dict):
-            logger.error(f"Expected task to be a dictionary but got {type(task)}: {task}")
-            continue
+    valid_tasks = [project for project in notion_tasks.get("results", []) if project.get('last_edited_time') is not None]
+    logger.debug(f"Valid tasks: {valid_tasks}")
+    if valid_tasks:
+        task_last_modified = max(valid_tasks, key=lambda x: x['last_edited_time'])['last_edited_time']
+    else:
+        task_last_modified = None  # 或者设置为一个合理的默认值
+    task_db_last_modified = db_manager.fetch_one("SELECT MAX(date_updated) FROM tasks WHERE deleted IS FALSE")
+    task_db_last_modified = task_db_last_modified[0] if task_db_last_modified else None
+    
+    if task_db_last_modified == None:
+        logger.info(f"Database not set, start initial syncing")
+        temp_id = str(uuid.uuid4())
+        new_task_in_todoist, new_task_sync_token, item_id, note_id = create_todoist_task_with_note(todoist_client, temp_id, todoist_task_data, task.get('url'))
+        todoist_url = f"https://todoist.com/showTask?id={item_id}"
+        logger.debug(f"Todoist task created: {item_id}")
+        logger.debug(f"Todoist note created: {note_id}")
+        logger.debug(f"Updating notion with TodoistID: {item_id}")
+        proposed_properties = notion_todoist_id_property(item_id)
+        update_notion_task = notion_client.update_page(notion_task_id, proposed_properties, new_task_in_todoist.get('is_deleted'))
+        logger.info(f"Updated notion with TodoistID: {item_id}")
         current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
-        logger.info(f"Processing task: {task}")  # Print debug info
-        properties = task.get('properties', {})
-        due_date = properties.get('Due',{})
-        due_date_value = ''
-        if due_date:
-            date_field = due_date.get('date')
-            if date_field:
-                due_date_value = date_field.get('start')
-                logger.info(f"due_date_value: {due_date_value}")
-        rich_text = properties.get('Description', {}).get('rich_text', [])
-        description = rich_text[0].get('text', {}).get('content', '') if rich_text else ''
-        priority_select = properties.get('Priority', {}).get('select')
-        todoist_task_data = {
-            "content": properties.get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
-            "due": {
-                "date":due_date_value,
-                "is_recurring": properties.get('Recurring', {}).get('checkbox'),
-                "timezone": "Asia/Shanghai"
-                                },
-            "priority": map_priority_reverse(priority_select.get('name')) if priority_select else None,
-            "project_id": properties.get('Project ID', {}).get('select', {}).get('id'),
-            "todoist_id": next((prop['text']['content'] for prop in properties.get('TodoistID', {}).get('rich_text', [])), None),
-            "description": description,
-            "checked": properties.get('Status', {}).get('checkbox'),
-            "is_deleted": task.get('archived'),
-        }
-        logger.info(f"Todoist task properties: {todoist_task_data}")
-        todoist_id = todoist_task_data["todoist_id"]
-        task_name = todoist_task_data["content"]
-        task_created = task.get('created_time')
-        task_modified = task.get('last_edited_time')
-        if not all([task_name, task_created, task_modified]):
-            logger.error(f"Task data missing required fields: {task}")
-            continue
+        notion_url = task.get('url')
 
-        # Check if the project exists in Todoist
-        notion_task_id = task.get('id')
-        todoist_id = db_manager.fetch_one("SELECT todoist_id FROM tasks WHERE notion_id = ?", (notion_task_id,))
-        todoist_id = todoist_id[0] if todoist_id else None
-        logger.info(f"Todoist task ID found: {todoist_id}")
-
-        if not todoist_id:
-            logger.info(f"No matching Todoist task found for notion_id: {notion_task_id}")
-            temp_id = str(uuid.uuid4())
-            new_task_in_todoist, new_task_sync_token, item_id, note_id = create_todoist_task_with_note(todoist_client, temp_id, todoist_task_data, task.get('url'))
-            logger.info(f"is deleted {new_task_in_todoist.get('is_deleted')}")
-            logger.info(f"Todoist Task created: {new_task_in_todoist}")
-            todoist_url = f"https://todoist.com/showTask?id={item_id}"
-            logger.info(f"Todoist task created: {item_id}")
-            logger.info(f"Todoist note created: {note_id}")
-            logger.info(f"Updating notion with TodoistID: {item_id}")
-            proposed_properties = notion_todoist_id_property(item_id)
-            update_notion_task = notion_client.update_page(notion_task_id, proposed_properties, new_task_in_todoist.get('is_deleted'))
-            logger.info(f"Updated notion with TodoistID: {item_id}")
-            current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
-            notion_url = task.get('url')
-
-            insert_task_query = get_insert_task_query(db_manager.db_type)
-            project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (new_task_in_todoist.get('project_id'),))
+        insert_task_query = get_insert_task_query(db_manager.db_type)
+        project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (new_task_in_todoist.get('project_id'),))[0]
           #  if not project_name:
          #       logger.info("Project not found, running project_sync...")
            #     project_sync()
            #     project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (new_task_in_todoist.get('project_id'),))
-            logger.info(f"Fetched project_name: {project_name}")
-            db_manager.execute_query(insert_task_query, (
+        logger.debug(f"Fetched project_name: {project_name}")
+        db_manager.execute_query(insert_task_query, (
                 item_id, task_name, due_date_value, new_task_in_todoist.get("priority"), 
                 new_task_in_todoist.get("project_id"), project_name, current_date, note_id, 
                 todoist_url, new_task_in_todoist['checked'], todoist_task_data['description'], 
                 todoist_task_data['due']['is_recurring'], current_date, new_task_in_todoist.get('is_deleted'), 
                 task.get('id'), notion_url, new_task_in_todoist.get('added_at'), new_task_in_todoist.get('updated_at'), task['created_time'], task['last_edited_time']
-            ))
-            db_manager.update_sync_token('items', new_task_sync_token)
-            logger.info(f"Task synced to Todoist and recorded in database: {task_name} (Todoist ID: {item_id}, Notion ID: {task['id']})")
-        else:
-            notion_modified = task.get('last_edited_time')
-            logger.info(f"notion_modified: {notion_modified}")
-            modified = db_manager.fetch_one("SELECT date_updated FROM tasks WHERE todoist_id = ?", (todoist_id,))
-            modified = modified[0] if modified else None
-            if is_valid_isoformat(notion_modified) and is_valid_isoformat(modified):
-                notion_modified_parsed = parse(notion_modified)
-                notion_modified_parsed = notion_modified_parsed.astimezone(timezone.utc)
-                logger.info(f"notion_modified_parsed: {notion_modified_parsed}")
-                modified_parsed = parse(modified)
-                modified_parsed = modified_parsed.astimezone(timezone.utc)
-                logger.info(f"modified_parsed: {modified_parsed}")
-                logger.info(f"Fetched notion update time {parse(notion_modified_parsed.isoformat())}, comparing with database update date: {parse(modified_parsed.isoformat())}")
-            if parse(notion_modified_parsed.isoformat()) > parse(modified_parsed.isoformat()):
-                logger.info(f"Notion task modified time {notion_modified_parsed.timestamp()} is later than database modified time {modified_parsed.timestamp()}")
-                task_data_update = {
-                        "content": properties.get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
-                        "due": {
-                            "datetime": due_date_value,
-                            "is_recurring": properties.get('Recurring', {}).get('checkbox'),
-                            "timezone": "Asia/Shanghai"
-                        },
-                        "priority": map_priority_reverse(priority_select.get('name')) if priority_select else None,
-                        "project_id": properties.get('Project ID', {}).get('select', {}).get('id'),
-                        "todoist_id": next((prop['text']['content'] for prop in properties.get('TodoistID', {}).get('rich_text', [])), None),
-                        "description": description,
-                        "checked": properties.get('Status', {}).get('checkbox'),
-                        "is_deleted": task.get('archived'),
-                    }
-                logger.info(task_data_update)
-                new_task_in_todoist = todoist_client.update_task(todoist_id, task_data_update)
-                logger.info(f"Updated task in Todoist: {new_task_in_todoist}")
-                new_sync_token = new_task_in_todoist.get('sync_token')
-                logger.info(f"New sync token: {new_sync_token}")
-                task_data = todoist_client.get_single_task(todoist_id)
-                logger.info(f"Fetched single task data from Todoist: {task_data}")
-                notion_url = f"https://www.notion.so/{task['id']}"
-                todoist_url = f"https://todoist.com/showTask?id={todoist_id}"
-                project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (todoist_task_data.get("project_id"),))
-                logger.info(f"Fetched project name: {project_name}")
-                update_task_query = get_update_task_query(db_manager.db_type)
-                db_manager.execute_query(update_task_query, (
-                        new_task_in_todoist.get('content'), due_date_value, todoist_task_data.get('priority'),
-                        todoist_task_data.get('project_id'), project_name, None, None, todoist_task_data['checked'], todoist_task_data['description'],
-                        properties.get('Recurring', {}).get('checkbox'), current_date, todoist_task_data.get('is_deleted'),
-                        task['id'], notion_url, None, task_data.get('updated_at'), task['created_time'], task['last_edited_time'], todoist_id
+        ))
+        db_manager.update_sync_token('items', new_task_sync_token)
+        logger.info(f"Task synced to Todoist and recorded in database: {task_name} (Todoist ID: {item_id}, Notion ID: {task['id']})")
+    else:
+        logger.info(f"Comparing DB modified time: {task_db_last_modified} and Notion Task DB modified time: {task_last_modified}")
+        if iso_to_timestamp(str(task_last_modified)) > iso_to_timestamp(str(task_db_last_modified)):
+            logger.info(f"Notion Task modified time {task_last_modified} is later than DB modified time {task_db_last_modified}, time difference: {abs(iso_to_timestamp(str(task_last_modified)) - iso_to_timestamp(str(task_db_last_modified)))}")
+            for task in valid_tasks.get("results", []):
+                if not isinstance(task, dict):
+                    logger.error(f"Expected task to be a dictionary but got {type(task)}: {task}")
+                    continue
+                current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
+                logger.debug(f"Processing task: {task}")  # Print debug info
+                properties = task.get('properties', {})
+                due_date = properties.get('Due',{})
+                due_date_value = ''
+                if due_date:
+                    date_field = due_date.get('date')
+                    if date_field:
+                        due_date_value = date_field.get('start')
+                        due_date_value = iso_to_naive(due_date_value)
+                        logger.debug(f"due_date_value: {due_date_value}")
+                rich_text = properties.get('Description', {}).get('rich_text', [])
+                description = rich_text[0].get('text', {}).get('content', '') if rich_text else ''
+                priority_select = properties.get('Priority', {}).get('select')
+                todoist_task_data = {
+                    "content": properties.get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
+                    "due": {
+                        "date":due_date_value,
+                        "is_recurring": properties.get('Recurring', {}).get('checkbox'),
+                        "timezone": "Asia/Shanghai"
+                                        },
+                    "priority": map_priority_reverse(priority_select.get('name')) if priority_select else None,
+                    "project_id": properties.get('Project ID', {}).get('select', {}).get('id'),
+                    "todoist_id": next((prop['text']['content'] for prop in properties.get('TodoistID', {}).get('rich_text', [])), None),
+                    "description": description,
+                    "checked": properties.get('Status', {}).get('checkbox'),
+                    "is_deleted": task.get('archived'),
+                }
+                logger.debug(f"Notion due date: {due_date_value}")
+                logger.debug(f"Todoist task properties: {todoist_task_data}")
+                #update
+                
+                logger.info(f"Updated task in Todoist: {todoist_task_data['content']}")
+                todoist_id = todoist_task_data["todoist_id"]
+                task_name = todoist_task_data["content"]
+                task_created = task.get('created_time')
+                task_modified = task.get('last_edited_time')
+                if not all([task_name, task_created, task_modified]):
+                    logger.error(f"Task data missing required fields: {task}")
+                    continue
+
+            # Check if the project exists in Todoist
+                notion_task_id = task.get('id')
+                todoist_id = db_manager.fetch_one("SELECT todoist_id FROM tasks WHERE notion_id = ?", (notion_task_id,))
+                todoist_id = todoist_id[0] if todoist_id else None
+                logger.info(f"Todoist task ID found: {todoist_id}")
+
+                if not todoist_id:
+                    logger.info(f"No matching Todoist task found for notion_id: {notion_task_id}")
+                    temp_id = str(uuid.uuid4())
+                    new_task_in_todoist, new_task_sync_token, item_id, note_id = create_todoist_task_with_note(todoist_client, temp_id, todoist_task_data, task.get('url'))
+                    logger.info(f"is deleted {new_task_in_todoist.get('is_deleted')}")
+                    logger.info(f"Todoist Task created: {new_task_in_todoist}")
+                    todoist_url = f"https://todoist.com/showTask?id={item_id}"
+                    logger.info(f"Todoist task created: {item_id}")
+                    logger.info(f"Todoist note created: {note_id}")
+                    logger.info(f"Updating notion with TodoistID: {item_id}")
+                    proposed_properties = notion_todoist_id_property(item_id)
+                    update_notion_task = notion_client.update_page(notion_task_id, proposed_properties, new_task_in_todoist.get('is_deleted'))
+                    logger.info(f"Updated notion with TodoistID: {item_id}")
+                    current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
+                    notion_url = task.get('url')
+
+                    insert_task_query = get_insert_task_query(db_manager.db_type)
+                    project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (new_task_in_todoist.get('project_id'),))[0]
+                #  if not project_name:
+                #       logger.info("Project not found, running project_sync...")
+                #     project_sync()
+                #     project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (new_task_in_todoist.get('project_id'),))
+                    logger.info(f"Fetched project_name: {project_name}")
+                    db_manager.execute_query(insert_task_query, (
+                        item_id, task_name, due_date_value, new_task_in_todoist.get("priority"), 
+                        new_task_in_todoist.get("project_id"), project_name, current_date, note_id, 
+                        todoist_url, new_task_in_todoist['checked'], todoist_task_data['description'], 
+                        todoist_task_data['due']['is_recurring'], current_date, new_task_in_todoist.get('is_deleted'), 
+                        task.get('id'), notion_url, new_task_in_todoist.get('added_at'), new_task_in_todoist.get('updated_at'), task['created_time'], task['last_edited_time']
                     ))
-                logger.info(f"Task updated in database: {task_name} (Todoist ID: {todoist_id}, Notion ID: {task['id']})")
-                db_manager.update_sync_token("items", new_sync_token)
-                logger.info(f"Sync token updated for items: {new_sync_token}")
+                    db_manager.update_sync_token('items', new_task_sync_token)
+                    logger.info(f"Task synced to Todoist and recorded in database: {task_name} (Todoist ID: {item_id}, Notion ID: {task['id']})")
+                else:
+                    notion_modified = task.get('last_edited_time')
+                    notion_modified = iso_to_timestamp(str(notion_modified))
+                    logger.info(f"notion_modified: {notion_modified}")
+                    modified = db_manager.fetch_one("SELECT date_updated FROM tasks WHERE todoist_id = ?", (todoist_id,))
+                    modified = iso_to_timestamp(modified[0]) if modified else None
+                    if notion_modified and modified:
+                        logger.info(f"Fetched notion update time {datetime.fromtimestamp(notion_modified)}, comparing with database update date: {datetime.fromtimestamp(modified)}")
+                    if notion_modified > modified:
+                        logger.info(f"Notion task modified time {datetime.fromtimestamp(notion_modified)} is later than database modified time {datetime.fromtimestamp(modified)}, time difference: {abs(notion_modified - modified)}")
+                        task_data_update = {
+                                "content": properties.get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
+                                "due": {
+                                    "datetime": due_date_value,
+                                    "is_recurring": properties.get('Recurring', {}).get('checkbox'),
+                                    "timezone": "Asia/Shanghai"
+                                },
+                                "priority": map_priority_reverse(priority_select.get('name')) if priority_select else None,
+                                "project_id": properties.get('Project ID', {}).get('select', {}).get('id'),
+                                "todoist_id": next((prop['text']['content'] for prop in properties.get('TodoistID', {}).get('rich_text', [])), None),
+                                "description": description,
+                                "checked": properties.get('Status', {}).get('checkbox'),
+                                "is_deleted": task.get('archived'),
+                            }
+                        logger.info(f"Updating task in Todoist: {todoist_task_data}")
+                        new_task_in_todoist = todoist_client.update_task(todoist_id, todoist_task_data)
+                        logger.info(f"Updated task in Todoist: {new_task_in_todoist}")
+                        new_sync_token = new_task_in_todoist.get('sync_token')
+                        logger.info(f"New sync token: {new_sync_token}")
+                        task_data = todoist_client.get_single_task(todoist_id)
+                        logger.info(f"Fetched single task data from Todoist: {task_data}")
+                        notion_url = f"https://www.notion.so/{task['id']}"
+                        todoist_url = f"https://todoist.com/showTask?id={todoist_id}"
+                        project_name = db_manager.fetch_one("SELECT name FROM projects WHERE todoist_id = ?", (todoist_task_data.get("project_id"),))[0]
+                        logger.info(f"Fetched project name: {project_name}")
+                        update_task_query = get_update_task_query(db_manager.db_type)
+                        db_manager.execute_query(update_task_query, (
+                                new_task_in_todoist.get('content'), due_date_value, todoist_task_data.get('priority'),
+                                todoist_task_data.get('project_id'), project_name, None, None, todoist_task_data['checked'], todoist_task_data['description'],
+                                properties.get('Recurring', {}).get('checkbox'), current_date, todoist_task_data.get('is_deleted'),
+                                task['id'], notion_url, None, task_data.get('updated_at'), task['created_time'], task['last_edited_time'], todoist_id
+                            ))
+                        logger.info(f"Task updated in database: {task_name} (Todoist ID: {todoist_id}, Notion ID: {task['id']})")
+                        db_manager.update_sync_token("items", new_sync_token)
+                        logger.info(f"Sync token updated for items: {new_sync_token}")
+                    else:
+                        logger.info(f"No update needed for task: {task_name} (Todoist ID: {todoist_id}, Notion ID: {task['id']})")
+    
     db_manager.close_connection()
 
 if __name__ == "__main__":
