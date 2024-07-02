@@ -2,6 +2,7 @@ import logger
 from datetime import datetime
 import time
 import uuid
+from dateutil.parser import isoparse
 def map_priority(priority):
     priority_map = {
         4: "🚨HIGH",
@@ -86,7 +87,12 @@ def notion_url_property(todoist_id):
             "url": f"https://todoist.com/showTask?id={todoist_id}"
         }
     }
-
+def notion_project_url_property(project_id):
+    return {
+        "URL": {
+            "url": f"https://todoist.com/showProject?id={project_id}"
+        }
+    }
 def notion_checked_property(checked):
     return {
         "Status": {
@@ -109,6 +115,18 @@ def notion_description_property(description):
             ]
         }
     }
+def notion_project_property(project_name):
+    return {
+        "Name": {
+            "title": [
+                {
+                    "text": {
+                        "content": project_name
+                    }
+                }
+            ]
+        }
+    }
 def is_valid_isoformat(date_string):
     try:
         datetime.fromisoformat(date_string)
@@ -121,3 +139,18 @@ def is_valid_uuid(uuid_to_test, version=4):
     except ValueError:
         return False
     return str(uuid_obj) == uuid_to_test
+
+
+
+
+def iso_to_timestamp(iso_str):
+    dt = isoparse(iso_str)
+    return dt.timestamp()
+
+# 示例调用
+
+def iso_to_naive(iso_str):
+    # 解析带有时区信息的 ISO 8601 字符串
+    dt = isoparse(iso_str)
+    # 将 datetime 对象转换为不带时区信息的字符串
+    return dt.strftime('%Y-%m-%dT%H:%M:%S')

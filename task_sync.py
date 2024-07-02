@@ -2,7 +2,7 @@ from api_client import TodoistSyncClient, NotionClient, TodoistTask, NotionTask
 from db_operations import DatabaseManager
 from logger import logger
 from sql_statements import get_insert_task_query, get_update_task_query
-from utils import map_priority_reverse, map_priority, retry_on_failure, notion_trash_property,notion_task_property, notion_checked_property,notion_priority_property, notion_due_date_property, notion_todoist_id_property, notion_url_property, notion_description_property, is_valid_isoformat, is_valid_uuid
+from utils import map_priority_reverse, map_priority, iso_to_timestamp,iso_to_naive,retry_on_failure, notion_trash_property,notion_task_property, notion_checked_property,notion_priority_property, notion_due_date_property, notion_todoist_id_property, notion_url_property, notion_description_property, is_valid_isoformat, is_valid_uuid
 from project_sync import create_notion_project
 from datetime import datetime, timezone, timedelta
 import uuid
@@ -267,6 +267,7 @@ def sync_notion_to_todoist():
             date_field = due_date.get('date')
             if date_field:
                 due_date_value = date_field.get('start')
+                due_date_value = iso_to_naive(due_date_value)
                 logger.info(f"due_date_value: {due_date_value}")
         rich_text = properties.get('Description', {}).get('rich_text', [])
         description = rich_text[0].get('text', {}).get('content', '') if rich_text else ''
@@ -285,7 +286,11 @@ def sync_notion_to_todoist():
             "checked": properties.get('Status', {}).get('checkbox'),
             "is_deleted": task.get('archived'),
         }
+        logger.info(f"Notion due date: {due_date_value}")
         logger.info(f"Todoist task properties: {todoist_task_data}")
+        #update
+        
+        logger.info(f"Updated task in Todoist: {todoist_task_data['content']}")
         todoist_id = todoist_task_data["todoist_id"]
         task_name = todoist_task_data["content"]
         task_created = task.get('created_time')
@@ -334,19 +339,14 @@ def sync_notion_to_todoist():
             logger.info(f"Task synced to Todoist and recorded in database: {task_name} (Todoist ID: {item_id}, Notion ID: {task['id']})")
         else:
             notion_modified = task.get('last_edited_time')
+            notion_modified = iso_to_timestamp(str(notion_modified))
             logger.info(f"notion_modified: {notion_modified}")
             modified = db_manager.fetch_one("SELECT date_updated FROM tasks WHERE todoist_id = ?", (todoist_id,))
-            modified = modified[0] if modified else None
-            if is_valid_isoformat(notion_modified) and is_valid_isoformat(modified):
-                notion_modified_parsed = parse(notion_modified)
-                notion_modified_parsed = notion_modified_parsed.astimezone(timezone.utc)
-                logger.info(f"notion_modified_parsed: {notion_modified_parsed}")
-                modified_parsed = parse(modified)
-                modified_parsed = modified_parsed.astimezone(timezone.utc)
-                logger.info(f"modified_parsed: {modified_parsed}")
-                logger.info(f"Fetched notion update time {parse(notion_modified_parsed.isoformat())}, comparing with database update date: {parse(modified_parsed.isoformat())}")
-            if parse(notion_modified_parsed.isoformat()) > parse(modified_parsed.isoformat()):
-                logger.info(f"Notion task modified time {notion_modified_parsed.timestamp()} is later than database modified time {modified_parsed.timestamp()}")
+            modified = iso_to_timestamp(modified[0]) if modified else None
+            if notion_modified and modified:
+                logger.info(f"Fetched notion update time {datetime.fromtimestamp(notion_modified)}, comparing with database update date: {datetime.fromtimestamp(modified)}")
+            if notion_modified > modified:
+                logger.info(f"Notion task modified time {datetime.fromtimestamp(notion_modified)} is later than database modified time {datetime.fromtimestamp(modified)}, time difference: {abs(notion_modified - modified)}")
                 task_data_update = {
                         "content": properties.get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
                         "due": {
@@ -361,8 +361,8 @@ def sync_notion_to_todoist():
                         "checked": properties.get('Status', {}).get('checkbox'),
                         "is_deleted": task.get('archived'),
                     }
-                logger.info(task_data_update)
-                new_task_in_todoist = todoist_client.update_task(todoist_id, task_data_update)
+                logger.info(f"Updating task in Todoist: {todoist_task_data}")
+                new_task_in_todoist = todoist_client.update_task(todoist_id, todoist_task_data)
                 logger.info(f"Updated task in Todoist: {new_task_in_todoist}")
                 new_sync_token = new_task_in_todoist.get('sync_token')
                 logger.info(f"New sync token: {new_sync_token}")
@@ -382,6 +382,9 @@ def sync_notion_to_todoist():
                 logger.info(f"Task updated in database: {task_name} (Todoist ID: {todoist_id}, Notion ID: {task['id']})")
                 db_manager.update_sync_token("items", new_sync_token)
                 logger.info(f"Sync token updated for items: {new_sync_token}")
+            else:
+                logger.info(f"No update needed for task: {task_name} (Todoist ID: {todoist_id}, Notion ID: {task['id']})")
+    
     db_manager.close_connection()
 
 if __name__ == "__main__":

@@ -408,3 +408,9 @@ class NotionTask:
         self.todoist_id = todoist_id
         self.checked = checked
         self.deleted = deleted
+
+class KimaiClient:
+    def __init__(self, token: str):
+        self.token = token
+        self.base_url = "https://kimai.kingschats.com/api"
+        self.headers = {"Authorization": f"Bearer {self.token}"}
