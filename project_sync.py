@@ -151,7 +151,7 @@ def sync_notion_projects_to_todoist():
         
     }
     notion_projects = notion_client.get_projects(filter)
-    logger.info(f"Notion projects: {notion_projects}")
+    logger.debug(f"Notion projects: {notion_projects}")
     current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
     logger.debug(f"Valid projects: {valid_projects}")
@@ -244,8 +244,6 @@ if __name__ == "__main__":
 
     logger.info("Completed synchronization from Notion to Todoist.")
                
-    
-    
     
     logger.info("Starting synchronization from Todoist to Notion...")
 
