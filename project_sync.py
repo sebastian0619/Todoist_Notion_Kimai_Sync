@@ -144,7 +144,7 @@ def sync_notion_projects_to_todoist():
     notion_projects = notion_client.get_projects({})
     current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
-    logger.info(f"Valid projects: {valid_projects}")
+    logger.debug(f"Valid projects: {valid_projects}")
     if valid_projects:
         project_last_modified = max(valid_projects, key=lambda x: x['last_edited_time'])['last_edited_time']
     else:
