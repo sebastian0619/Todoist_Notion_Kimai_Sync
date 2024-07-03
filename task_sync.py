@@ -2,17 +2,16 @@ from api_client import TodoistSyncClient, NotionClient, TodoistTask, NotionTask
 from db_operations import DatabaseManager
 from logger import logger
 from sql_statements import get_insert_task_query, get_update_task_query
-from utils import map_priority_reverse, map_priority, iso_to_timestamp,iso_to_naive,retry_on_failure, notion_trash_property,notion_task_property, notion_checked_property,notion_priority_property, notion_due_date_property, notion_todoist_id_property, notion_url_property, notion_description_property, is_valid_isoformat, is_valid_uuid
-from project_sync import create_notion_project
+from utils import map_priority_reverse, map_priority, iso_to_timestamp,iso_to_naive,retry_on_failure, notion_task_property, notion_checked_property,notion_priority_property, notion_due_date_property, notion_todoist_id_property, notion_url_property, notion_description_property, is_valid_uuid
 from datetime import datetime, timezone, timedelta
 import uuid
 import os
-import time
+
 import json
 import logging
 from pythonjsonlogger import jsonlogger
 from notion_client import Client
-from dateutil.parser import parse
+
 
 
 log_file = 'log.json'

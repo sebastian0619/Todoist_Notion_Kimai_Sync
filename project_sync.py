@@ -2,7 +2,6 @@ from api_client import TodoistSyncClient, NotionClient
 from logger import logger
 from db_operations import DatabaseManager
 from sql_statements import get_insert_project_query, get_update_project_query
-from notion_properties import get_notion_project_properties
 from utils import iso_to_timestamp, notion_project_property
 import uuid
 import os

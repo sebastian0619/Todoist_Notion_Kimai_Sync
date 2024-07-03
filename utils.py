@@ -99,10 +99,6 @@ def notion_checked_property(checked):
             "checkbox": checked
         }
     }
-def notion_trash_property(deleted):
-    return {
-        "archived": deleted
-    }
 def notion_description_property(description):
     return {
         "Description": {
@@ -143,12 +139,6 @@ def notion_project_property(project):
         }
     }
     
-def is_valid_isoformat(date_string):
-    try:
-        datetime.fromisoformat(date_string)
-        return True
-    except ValueError:
-        return False
 def is_valid_uuid(uuid_to_test, version=4):
     try:
         uuid_obj = uuid.UUID(uuid_to_test, version=version)
