@@ -154,10 +154,22 @@ def sync_notion_projects_to_todoist():
     current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
     logger.debug(f"Valid projects: {valid_projects}")
-<<<<<<< HEAD
-=======
     notion_projects = notion_projects['results']
->>>>>>> 46c0da2ae8b35eb56b9a6d9e7142b1b2d8dd520c
+    confirm_notion_inbox = db_manager.fetch_one("SELECT notion_id FROM projects WHERE name = 'Inbox'")
+    if confirm_notion_inbox:
+        notion_inbox_id = confirm_notion_inbox[0]
+    else:
+        logger.info(f"Inbox project not found in database or in Notion, start creating")
+        todoist_inbox = next((project for project in todoist_client.get_projects()['projects'] if project['inbox_project']), None)
+        logger.info(f"Todoist inbox: {todoist_inbox}")
+        todoist_inbox_id = todoist_inbox['id']
+        todoist_inbox_project = {
+            "id": todoist_inbox_id,
+            "name": "Inbox",
+        }
+        create_notion_project(notion_client, todoist_inbox_project)
+
+
     if valid_projects:
         project_last_modified = max(valid_projects, key=lambda x: x['last_edited_time'])['last_edited_time']
     else:

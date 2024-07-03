@@ -1,3 +1,6 @@
 .env
 back-up - todoistworked.py
 backup.txt
+*.pyc
+*.db
+*.json
