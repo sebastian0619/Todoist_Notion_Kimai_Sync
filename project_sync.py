@@ -158,12 +158,7 @@ def sync_notion_projects_to_todoist():
         todoist_inbox = next((project for project in todoist_client.get_projects("*")['projects'] if project['inbox_project']), None)
         logger.info(f"Todoist inbox: {todoist_inbox}")
         todoist_inbox_id = todoist_inbox['id']
-        todoist_inbox_project = {
-            "id": todoist_inbox_id,
-            "name": "Inbox",
-
-        }
-        notion_client.create_project(notion_project_property(todoist_inbox_project))
+        notion_client.create_project(notion_project_property(todoist_inbox))
 
     notion_projects = notion_client.get_projects(filter)
     logger.debug(f"Notion projects: {notion_projects}")
