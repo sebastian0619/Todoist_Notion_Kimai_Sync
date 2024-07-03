@@ -64,7 +64,8 @@ def get_create_projects_table_sql(db_type):
             updated_at DATETIME,
             notion_created DATETIME,
             notion_modified DATETIME,
-            deleted BOOLEAN
+            deleted BOOLEAN,
+            archived BOOLEAN
         );
         """
     else:
@@ -80,7 +81,8 @@ def get_create_projects_table_sql(db_type):
             updated_at DATETIME,
             notion_created DATETIME,
             notion_modified DATETIME,
-            deleted BOOLEAN
+            deleted BOOLEAN,
+            archived BOOLEAN
         );
         """
 
@@ -143,24 +145,24 @@ def get_update_task_query(db_type):
 def get_insert_project_query(db_type):
     if db_type == "mysql":
         return """
-        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified, deleted)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified, deleted, archived)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """
     else:
         return """
-        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified, deleted)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO projects (id, name, todoist_id, notion_id, todoist_url, notion_url, created_at, updated_at, notion_created, notion_modified, deleted, archived)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """
 
 def get_update_project_query(db_type):
     if db_type == "mysql":
         return """
-        UPDATE projects SET name = %s, todoist_id = %s, notion_id = %s, todoist_url = %s, notion_url = %s, created_at = %s, updated_at = %s, notion_created = %s, notion_modified = %s, deleted = %s
+        UPDATE projects SET name = %s, todoist_id = %s, notion_id = %s, todoist_url = %s, notion_url = %s, created_at = %s, updated_at = %s, notion_created = %s, notion_modified = %s, deleted = %s, archived = %s
         WHERE id = %s
         """
     else:
         return """
-        UPDATE projects SET name = ?, todoist_id = ?, notion_id = ?, todoist_url = ?, notion_url = ?, created_at = ?, updated_at = ?, notion_created = ?, notion_modified = ?, deleted = ?
+        UPDATE projects SET name = ?, todoist_id = ?, notion_id = ?, todoist_url = ?, notion_url = ?, created_at = ?, updated_at = ?, notion_created = ?, notion_modified = ?, deleted = ?, archived = ?
         WHERE id = ?
         """
 
