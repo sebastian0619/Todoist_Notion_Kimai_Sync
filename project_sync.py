@@ -96,7 +96,7 @@ def sync_todoist_projects_to_notion():
                 notion_url = update_notion_project.get('url')
                 todoist_url = f"https://todoist.com/showProject?id={project_id}"
                 insert_project_query = get_insert_project_query(db_manager.db_type)
-                db_manager.execute_query(insert_project_query, (None, project_name, project_id, update_notion_project['id'], todoist_url, notion_url, current_date, current_date, update_notion_project['created_time'], update_notion_project['created_time'], project.get('is_deleted')))
+                db_manager.execute_query(insert_project_query, (None, project_name, project_id, update_notion_project['id'], todoist_url, notion_url, current_date, current_date, update_notion_project['created_time'], update_notion_project['created_time'], project.get('is_deleted'),project.get('is_archived')))
                 logger.info(f"Project synced to Notion: {project_name} (Todoist ID: {project_id}, Notion ID: {update_notion_project['id']})")
         db_manager.update_sync_token("projects", new_project_sync_token)
     else:
@@ -121,7 +121,7 @@ def sync_todoist_projects_to_notion():
                 logger.info(f"Notion project exists, updating...")
                 update_notion_project = notion_client.update_project(notion_project_id, notion_project_property(project), project.get('is_deleted'))
                 update_project_query = get_update_project_query(db_manager.db_type)
-                db_manager.execute_query(update_project_query, (None, project_name, project_id, notion_project_id, todoist_url, update_notion_project['url'], None, None, update_notion_project['created_time'], update_notion_project['last_edited_time'], project.get('is_deleted')))
+                db_manager.execute_query(update_project_query, (None, project_name, project_id, notion_project_id, todoist_url, update_notion_project['url'], None, None, update_notion_project['created_time'], update_notion_project['last_edited_time'], project.get('is_deleted'),project.get('is_archived')))
                 logger.info(f"Project updated in Notion: {project_name} (Todoist ID: {project_id}, Notion ID: {notion_project_id})")
                 db_manager.update_sync_token("projects", new_project_sync_token)
             else:
@@ -129,7 +129,7 @@ def sync_todoist_projects_to_notion():
                 notion_url = update_notion_project.get('url')
                 todoist_url = f"https://todoist.com/showProject?id={project_id}"
                 insert_project_query = get_insert_project_query(db_manager.db_type)
-                db_manager.execute_query(insert_project_query, (None, project_name, project_id, update_notion_project['id'], todoist_url, notion_url, current_date, current_date, update_notion_project['created_time'], update_notion_project['created_time'], project.get('is_deleted')))
+                db_manager.execute_query(insert_project_query, (None, project_name, project_id, update_notion_project['id'], todoist_url, notion_url, current_date, current_date, update_notion_project['created_time'], update_notion_project['created_time'], project.get('is_deleted'),project.get('is_archived')))
                 logger.info(f"Project synced to Notion: {project_name} (Todoist ID: {project_id}, Notion ID: {update_notion_project['id']})")
                 db_manager.update_sync_token("projects", new_project_sync_token)
 
@@ -141,10 +141,19 @@ def sync_notion_projects_to_todoist():
     db_manager = DatabaseManager(DB_TYPE, DB_PATH)
     notion_client = NotionClient(NOTION_TOKEN)
     todoist_client = TodoistSyncClient(TODOIST_TOKEN,DB_TYPE, DB_PATH)
-    notion_projects = notion_client.get_projects({})
+    filter = {
+            "and":[{
+                "property": "Archived",
+                "checkbox": {
+                    "equals": False
+                }
+            }]
+        
+    }
+    notion_projects = notion_client.get_projects(filter)
     current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
-    logger.info(f"Valid projects: {valid_projects}")
+    logger.debug(f"Valid projects: {valid_projects}")
     if valid_projects:
         project_last_modified = max(valid_projects, key=lambda x: x['last_edited_time'])['last_edited_time']
     else:
@@ -171,7 +180,7 @@ def sync_notion_projects_to_todoist():
             insert_project_query = get_insert_project_query(db_manager.db_type)
             db_manager.execute_query(insert_project_query, (
                     None, project_name, project.get('id'), project.get('id'), todoist_url, notion_url, 
-                    project.get('created_time'), current_date, project.get('created_time'), project.get('last_edited_time')
+                    project.get('created_time'), current_date, project.get('created_time'), project.get('last_edited_time'), project.get('archived'),properties.get('Archived', {}).get('checkbox')
             ))
             logger.info(f"Project synced to Notion: {project_name} (Todoist ID: {todoist_project_id}, Notion ID: {project.get('id')})")
     else:
@@ -190,6 +199,7 @@ def sync_notion_projects_to_todoist():
                 todoist_project_data = {
                     "name": properties.get('Name', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
                     "id": todoist_id,
+
                 }
                 modified = db_manager.fetch_one("SELECT updated_at FROM projects WHERE todoist_id = ?", (todoist_id,))
                 if todoist_id and db_todoist_id:
@@ -199,7 +209,7 @@ def sync_notion_projects_to_todoist():
                         todoist_client.update_project(todoist_id, todoist_project_data)
                         logger.info(f"Project updated in Todoist: {project_name} (Todoist ID: {todoist_id}, Notion ID: {project['id']})")
                         update_project_query = get_update_project_query(db_manager.db_type)
-                        db_manager.execute_query(update_project_query, (None, project_name, todoist_id, project['id'], todoist_url, project.get("url"), project_modified, None, None, project_modified, project.get('archived')))
+                        db_manager.execute_query(update_project_query, (None, project_name, todoist_id, project['id'], todoist_url, project.get("url"), project_modified, None, None, project_modified, project.get('archived'),properties.get('Archived', {}).get('checkbox')))
                 elif not db_todoist_id:
                     logger.info(f"Project not in todoist, creating...")
                     temp_id = str(uuid.uuid4())
@@ -212,7 +222,7 @@ def sync_notion_projects_to_todoist():
                     insert_project_query = get_insert_project_query(db_manager.db_type)
                     db_manager.execute_query(insert_project_query, (
                             None, project_name, todoist_project_id, project.get('id'), todoist_url, notion_url, 
-                            project.get('created_time'), current_date, project.get('created_time'), project.get('last_edited_time'), project.get('archived')
+                            project.get('created_time'), current_date, project.get('created_time'), project.get('last_edited_time'), project.get('archived'),properties.get('Archived', {}).get('checkbox')
                     ))
                     logger.info(f"Project synced to Todoist: {project_name} (Todoist ID: {todoist_project_id}, Notion ID: {project.get('id')})")
         else:
