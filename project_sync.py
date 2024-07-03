@@ -149,12 +149,7 @@ def sync_notion_projects_to_todoist():
             }]
         
     }
-    notion_projects = notion_client.get_projects(filter)
-    logger.debug(f"Notion projects: {notion_projects}")
-    current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
-    valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
-    logger.debug(f"Valid projects: {valid_projects}")
-    notion_projects = notion_projects['results']
+    
     confirm_notion_inbox = db_manager.fetch_one("SELECT notion_id FROM projects WHERE name = 'Inbox'")
     if confirm_notion_inbox:
         notion_inbox_id = confirm_notion_inbox[0]
@@ -166,10 +161,16 @@ def sync_notion_projects_to_todoist():
         todoist_inbox_project = {
             "id": todoist_inbox_id,
             "name": "Inbox",
+
         }
-        create_notion_project(notion_client, todoist_inbox_project)
+        notion_client.create_project(notion_project_property(todoist_inbox_project))
 
-
+    notion_projects = notion_client.get_projects(filter)
+    logger.debug(f"Notion projects: {notion_projects}")
+    current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
+    valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
+    logger.debug(f"Valid projects: {valid_projects}")
+    notion_projects = notion_projects['results']    
     if valid_projects:
         project_last_modified = max(valid_projects, key=lambda x: x['last_edited_time'])['last_edited_time']
     else:
