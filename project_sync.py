@@ -151,9 +151,11 @@ def sync_notion_projects_to_todoist():
         
     }
     notion_projects = notion_client.get_projects(filter)
+    logger.info(f"Notion projects: {notion_projects}")
     current_date = datetime.now(timezone.utc).astimezone(timezone(timedelta(hours=8)))
     valid_projects = [project for project in notion_projects.get("results", []) if project.get('last_edited_time') is not None]
     logger.debug(f"Valid projects: {valid_projects}")
+    notion_projects = notion_projects['results']
     if valid_projects:
         project_last_modified = max(valid_projects, key=lambda x: x['last_edited_time'])['last_edited_time']
     else:
@@ -164,13 +166,17 @@ def sync_notion_projects_to_todoist():
     if project_db_last_modified == None:
         logger.info(f"Database not set, start initial syncing")
         for project in notion_projects:
-            logger.info(f"Project: {project['properties'].get('Name')}")
-            properties = project.get('properties', {})
+            properties = project['properties']
             todoist_id = next((prop['text']['content'] for prop in properties.get('TodoistID', {}).get('rich_text', [])), None)
             project_name = properties.get('Name', {}).get('title', [{}])[0].get('text', {}).get('content', '')
             project_created = project.get('created_time')
             project_modified = project.get('last_edited_time')
             temp_id = str(uuid.uuid4())
+            todoist_project_data = {
+                "name": properties.get('Name', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
+                "id": todoist_id,
+
+            }
             temp_id_mapping = todoist_client.create_project(todoist_project_data, temp_id)['temp_id_mapping']
             logger.debug(f"temp_id_mapping: {temp_id_mapping}")
             todoist_project_id = temp_id_mapping[temp_id]
@@ -233,14 +239,17 @@ def sync_notion_projects_to_todoist():
 
 
 if __name__ == "__main__":
+    logger.info("Starting synchronization from Notion to Todoist...")
+    sync_notion_projects_to_todoist()
+
+    logger.info("Completed synchronization from Notion to Todoist.")
+               
+    
+    
+    
     logger.info("Starting synchronization from Todoist to Notion...")
 
     sync_todoist_projects_to_notion()
 
     logger.info("Completed synchronization from Todoist to Notion.")
     
-    logger.info("Starting synchronization from Notion to Todoist...")
-    sync_notion_projects_to_todoist()
-
-    logger.info("Completed synchronization from Notion to Todoist.")
-               

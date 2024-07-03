@@ -351,6 +351,7 @@ class NotionClient:
         if filter_properties:
             data["filter"] = filter_properties
         result = self.client.databases.query(**data)
+        logging.info(f"本次请求的内容: 数据库ID={self.project_database_id}, 参数={data}")
         #print(f"get_projects() 返回: {result}")
         return result
     

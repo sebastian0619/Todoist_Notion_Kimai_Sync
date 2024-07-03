@@ -7,13 +7,13 @@ from task_sync import sync_todoist_to_notion, sync_notion_to_todoist
 def project_sync():
     while True:
         try:
-            logger.info("Starting project synchronization from Todoist to Notion...")
-            sync_todoist_projects_to_notion()
-            logger.info("Completed project synchronization from Todoist to Notion.")
-            
             logger.info("Starting project synchronization from Notion to Todoist...")
             sync_notion_projects_to_todoist()
             logger.info("Completed project synchronization from Notion to Todoist.")
+            
+            logger.info("Starting project synchronization from Todoist to Notion...")
+            sync_todoist_projects_to_notion()
+            logger.info("Completed project synchronization from Todoist to Notion.")
         except Exception as e:
             logger.error(f"Error during project synchronization: {e}")
         
@@ -41,13 +41,14 @@ def task_sync():
 
 if __name__ == "__main__":
     project_thread = Thread(target=project_sync)
-    task_thread = Thread(target=task_sync)
     
     project_thread.daemon = True
-    task_thread.daemon = True
     
     project_thread.start()
-    task_thread.start()
+    project_thread.join()  # 等待 project_sync 完成
     
-    project_thread.join()
+    task_thread = Thread(target=task_sync)
+    task_thread.daemon = True
+    
+    task_thread.start()
     task_thread.join()
