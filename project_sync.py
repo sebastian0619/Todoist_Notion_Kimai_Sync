@@ -160,7 +160,7 @@ def sync_notion_projects_to_todoist():
         notion_inbox_id = confirm_notion_inbox[0]
     else:
         logger.info(f"Inbox project not found in database or in Notion, start creating")
-        todoist_inbox = next((project for project in todoist_client.get_projects()['projects'] if project['inbox_project']), None)
+        todoist_inbox = next((project for project in todoist_client.get_projects("*")['projects'] if project['inbox_project']), None)
         logger.info(f"Todoist inbox: {todoist_inbox}")
         todoist_inbox_id = todoist_inbox['id']
         todoist_inbox_project = {
