@@ -110,17 +110,6 @@ def update_notion_task(notion_client, todoist_task, page_id):
         logger.error(f"Failed to update Notion task: {e}")
         raise
 def create_todoist_task_with_note(todoist_client, temp_id, todoist_task, notion_url):
-    #rich_text = todoist_task.get('Description', {}).get('rich_text', [])
-    #description = rich_text[0].get('text', {}).get('content', '') if rich_text else ''
-    #priority_select = todoist_task.get('Priority', {}).get('select')
-    #task_data = {
-       #     "content": todoist_task.get('Task', {}).get('title', [{}])[0].get('text', {}).get('content', ''),
-       #     "due_date": todoist_task.get('Due', {}).get('date', {}).get('start'),
-       #     "priority": priority_select.get('name') if priority_select else None,
-       #     "project_id": todoist_task.get('Project ID', {}).get('select', {}).get('id'),
-         #   "todoist_id": next((prop['text']['content'] for prop in todoist_task.get('TodoistID', {}).get('rich_text', [])), None),
-      #      "description": description
-      #      }
     task_data = todoist_task
     
     new_sync_token, new_item_id, new_note_id = todoist_client.create_task_with_note(task_data, temp_id, notion_url)
