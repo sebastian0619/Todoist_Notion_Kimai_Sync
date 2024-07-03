@@ -134,8 +134,14 @@ def notion_project_property(project):
                     }
                 }
             ]
+        },
+        "Archived": {
+            "checkbox": project.get('is_archived')
+        },
+        'TodoistURL': {
+            "url": f"https://todoist.com/showProject?id={project.get('id')}"
         }
-        }
+    }
     
 def is_valid_isoformat(date_string):
     try:
