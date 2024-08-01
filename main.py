@@ -18,6 +18,8 @@ def project_sync():
 
 def sync_all():
     while True:
+        start_time = time.time()
+        
         project_sync()  # 每次任务同步前先进行项目同步
         
         try:
@@ -35,7 +37,10 @@ def sync_all():
         except Exception as e:
             logger.error(f"任务同步过程中出错: {e}")
         
-        time.sleep(120)  # 每两分钟进行一次完整的同步
+        # 计算剩余时间并等待
+        elapsed_time = time.time() - start_time
+        sleep_time = max(60 - elapsed_time, 0)  # 确保至少等待0秒
+        time.sleep(sleep_time)
 
 if __name__ == "__main__":
     sync_thread = Thread(target=sync_all)
