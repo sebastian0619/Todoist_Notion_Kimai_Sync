@@ -5,50 +5,45 @@ from project_sync import sync_todoist_projects_to_notion, sync_notion_projects_t
 from task_sync import sync_todoist_to_notion, sync_notion_to_todoist
 
 def project_sync():
-    while True:
-        try:
-            logger.info("Starting project synchronization from Notion to Todoist...")
-            sync_notion_projects_to_todoist()
-            logger.info("Completed project synchronization from Notion to Todoist.")
-            
-            logger.info("Starting project synchronization from Todoist to Notion...")
-            sync_todoist_projects_to_notion()
-            logger.info("Completed project synchronization from Todoist to Notion.")
-        except Exception as e:
-            logger.error(f"Error during project synchronization: {e}")
+    try:
+        logger.info("开始从 Notion 到 Todoist 的项目同步...")
+        sync_notion_projects_to_todoist()
+        logger.info("完成从 Notion 到 Todoist 的项目同步。")
         
-        time.sleep(15)
+        logger.info("开始从 Todoist 到 Notion 的项目同步...")
+        sync_todoist_projects_to_notion()
+        logger.info("完成从 Todoist 到 Notion 的项目同步。")
+    except Exception as e:
+        logger.error(f"项目同步过程中出错: {e}")
 
-def task_sync():
+def sync_all():
     while True:
-        try:
-            logger.info("Starting task synchronization from Todoist to Notion...")
-            if not sync_todoist_to_notion():
-                logger.info("No new tasks to sync from Todoist to Notion.")
-            else:
-                logger.info("Completed task synchronization from Todoist to Notion.")
-            
-            logger.info("Starting task synchronization from Notion to Todoist...")
-            if not sync_notion_to_todoist():
-                logger.info("No new tasks to sync from Notion to Todoist.")
-            else:
-                logger.info("Completed task synchronization from Notion to Todoist.")
-        except Exception as e:
-            logger.error(f"Error during task synchronization: {e}")
+        project_sync()  # 每次任务同步前先进行项目同步
         
-        time.sleep(60)
-        time.sleep(60)
+        try:
+            logger.info("开始从 Todoist 到 Notion 的任务同步...")
+            if not sync_todoist_to_notion():
+                logger.info("没有新任务需要从 Todoist 同步到 Notion。")
+            else:
+                logger.info("完成从 Todoist 到 Notion 的任务同步。")
+            
+            logger.info("开始从 Notion 到 Todoist 的任务同步...")
+            if not sync_notion_to_todoist():
+                logger.info("没有新任务需要从 Notion 同步到 Todoist。")
+            else:
+                logger.info("完成从 Notion 到 Todoist 的任务同步。")
+        except Exception as e:
+            logger.error(f"任务同步过程中出错: {e}")
+        
+        time.sleep(120)  # 每两分钟进行一次完整的同步
 
 if __name__ == "__main__":
-    project_thread = Thread(target=project_sync)
+    sync_thread = Thread(target=sync_all)
+    sync_thread.daemon = True
+    sync_thread.start()
     
-    project_thread.daemon = True
-    
-    project_thread.start()
-    project_thread.join()  # 等待 project_sync 完成
-    
-    task_thread = Thread(target=task_sync)
-    task_thread.daemon = True
-    
-    task_thread.start()
-    task_thread.join()
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        logger.info("程序被用户中断")
